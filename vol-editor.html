@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sky: CoL .vol 3D纹理编辑器</title>
+<style>
+:root {
+  --bg: #1a1a2e;
+  --surface: #16213e;
+  --surface2: #0f3460;
+  --accent: #e94560;
+  --accent2: #53b8bb;
+  --text: #eee;
+  --text2: #aaa;
+  --border: #2a2a4a;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  padding: 20px;
+}
+.container { max-width: 1400px; margin: 0 auto; }
+h1 {
+  font-size: 24px;
+  color: var(--accent2);
+  margin-bottom: 4px;
+}
+.subtitle { color: var(--text2); font-size: 14px; margin-bottom: 20px; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  margin-bottom: 20px;
+}
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--accent2);
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.row { display: flex; gap: 20px; flex-wrap: wrap; }
+.col { flex: 1; min-width: 300px; }
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  padding: 30px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: rgba(83,184,187,0.05);
+}
+.drop-zone:hover,.drop-zone.dragover { border-color:var(--accent2); background:rgba(83,184,187,0.1); }
+.drop-zone.has-file { border-color:#4caf50; background:rgba(76,175,80,0.1); }
+.drop-zone input[type="file"] { display:none; }
+.drop-zone .icon { font-size:36px; margin-bottom:10px; opacity:0.6; }
+.drop-zone .text { font-size:14px; color:var(--text2); }
+.drop-zone .filename { font-size:14px; color:#4caf50; font-weight:600; margin-top:8px; }
+.info-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:10px; }
+.info-item { background:var(--bg); border-radius:8px; padding:10px 14px; }
+.info-item .label { font-size:11px; color:var(--text2); text-transform:uppercase; letter-spacing:0.5px; }
+.info-item .value { font-size:18px; font-weight:700; color:var(--accent2); margin-top:2px; }
+.canvas-wrapper { display:flex; flex-direction:column; align-items:center; gap:10px; }
+.canvas-wrapper canvas { border:1px solid var(--border); border-radius:8px; image-rendering:pixelated; cursor:crosshair; max-width:100%; }
+.slice-nav { display:flex; align-items:center; gap:12px; width:100%; max-width:400px; }
+.slice-nav label { font-size:13px; color:var(--text2); white-space:nowrap; }
+.slice-nav input[type="range"] { flex:1; accent-color:var(--accent2); }
+.slice-nav .slice-info { font-size:14px; font-weight:600; color:var(--text); min-width:60px; text-align:center; }
+.view-controls { display:flex; gap:8px; margin-top:8px; flex-wrap:wrap; justify-content:center; }
+.btn { padding:8px 18px; border:1px solid var(--border); border-radius:6px; background:var(--surface2); color:var(--text); cursor:pointer; font-size:13px; transition:all 0.2s; }
+.btn:hover { background:#1a4a7a; border-color:var(--accent2); }
+.btn.primary { background:var(--accent2); color:#000; border-color:var(--accent2); font-weight:600; }
+.btn.primary:hover { background:#6cd0d3; }
+.btn.danger { background:var(--accent); border-color:var(--accent); }
+.btn.danger:hover { background:#ff5a75; }
+.btn:disabled { opacity:0.4; cursor:not-allowed; }
+.btn-group { display:flex; gap:8px; flex-wrap:wrap; }
+.toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:12px; }
+.tool-btn { padding:6px 14px; border:1px solid var(--border); border-radius:6px; background:var(--bg); color:var(--text2); cursor:pointer; font-size:12px; transition:all 0.2s; }
+.tool-btn.active { background:var(--accent2); color:#000; border-color:var(--accent2); }
+.tool-btn:hover { border-color:var(--accent2); }
+.tool-options { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:12px; }
+.tool-options label { font-size:12px; color:var(--text2); }
+.tool-options input[type="color"] { width:32px; height:32px; border:1px solid var(--border); border-radius:4px; background:transparent; cursor:pointer; }
+.tool-options input[type="range"] { accent-color:var(--accent2); width:80px; }
+.filter-group { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.filter-group input[type="range"] { accent-color:var(--accent2); width:100px; }
+.progress-bar { width:100%; height:4px; background:var(--bg); border-radius:2px; overflow:hidden; margin-top:8px; }
+.progress-bar .fill { height:100%; background:var(--accent2); width:0%; transition:width 0.3s; }
+.status { font-size:13px; color:var(--text2); margin-top:8px; }
+@media (max-width:768px) { .row { flex-direction:column; } .col { min-width:0; } .info-grid { grid-template-columns:repeat(2,1fr); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>☁️ Sky: CoL .vol 3D纹理编辑器</h1>
+  <p class="subtitle">解码、查看、编辑和重新编码《光·遇》体积纹理文件</p>
+
+  <div class="card">
+    <div class="card-title">加载文件</div>
+    <div class="drop-zone" id="dropZone">
+      <div class="icon">📂</div>
+      <div class="text">拖拽 .vol 文件到此处，或点击选择文件</div>
+      <div class="filename" id="fileName"></div>
+      <input type="file" id="fileInput" accept=".vol">
+    </div>
+    <div class="status" id="loadStatus"></div>
+  </div>
+
+  <div class="card" id="infoCard" style="display:none">
+    <div class="card-title">文件信息</div>
+    <div class="info-grid" id="infoGrid"></div>
+  </div>
+
+  <div class="row" id="editorSection" style="display:none">
+    <div class="col">
+      <div class="card">
+        <div class="card-title">2D切片视图</div>
+        <div class="toolbar">
+          <button class="tool-btn active" data-tool="view">👁 查看</button>
+          <button class="tool-btn" data-tool="paint">✏️ 画笔</button>
+          <button class="tool-btn" data-tool="fill">🪣 填充</button>
+        </div>
+        <div class="tool-options" id="toolOptions">
+          <label>颜色: <input type="color" id="paintColor" value="#ffffff"></label>
+          <label>大小: <input type="range" id="brushSize" min="1" max="20" value="3"> <span id="brushSizeLabel">3</span></label>
+          <label>强度: <input type="range" id="paintIntensity" min="1" max="255" value="255"> <span id="paintIntensityLabel">255</span></label>
+        </div>
+        <div class="canvas-wrapper">
+          <canvas id="sliceCanvas"></canvas>
+          <div class="slice-nav">
+            <label>Z轴层:</label>
+            <input type="range" id="sliceSlider" min="0" max="0" value="0" step="1">
+            <span class="slice-info" id="sliceInfo">0 / 0</span>
+          </div>
+          <div class="view-controls">
+            <button class="btn" id="axisXY">XY平面</button>
+            <button class="btn" id="axisXZ">XZ平面</button>
+            <button class="btn" id="axisYZ">YZ平面</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <div class="card-title">滤镜 & 调整</div>
+        <div style="margin-bottom:16px">
+          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px">亮度</label>
+          <div class="filter-group">
+            <input type="range" id="filterBrightness" min="-128" max="128" value="0">
+            <span id="filterBrightnessVal">0</span>
+            <button class="btn" id="applyBrightness" style="font-size:12px">应用</button>
+          </div>
+        </div>
+        <div style="margin-bottom:16px">
+          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px">对比度</label>
+          <div class="filter-group">
+            <input type="range" id="filterContrast" min="0" max="300" value="100">
+            <span id="filterContrastVal">100%</span>
+            <button class="btn" id="applyContrast" style="font-size:12px">应用</button>
+          </div>
+        </div>
+        <div style="margin-bottom:16px">
+          <label style="font-size:13px;color:var(--text2);display:block;margin-bottom:4px">Gamma</label>
+          <div class="filter-group">
+            <input type="range" id="filterGamma" min="10" max="300" value="100">
+            <span id="filterGammaVal">1.0</span>
+            <button class="btn" id="applyGamma" style="font-size:12px">应用</button>
+          </div>
+        </div>
+        <div class="btn-group" style="margin-top:12px">
+          <button class="btn" id="invertColors">反转颜色</button>
+          <button class="btn" id="normalizeHist">直方图均衡</button>
+          <button class="btn" id="smoothFilter">3D平滑模糊</button>
+          <button class="btn danger" id="resetTexture">重置纹理</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">导出</div>
+        <div class="btn-group">
+          <button class="btn primary" id="exportVol">导出为 .vol</button>
+          <button class="btn" id="exportPNG">导出当前切片为 PNG</button>
+          <button class="btn" id="exportAllSlices">导出所有切片为 ZIP</button>
+        </div>
+        <div class="progress-bar" id="exportProgress"><div class="fill" id="exportProgressFill"></div></div>
+        <div class="status" id="exportStatus"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ========== State ==========
+const EXTRA_SIZE = 3840;
+const HEADER_SIZE = 0x100;
+let state = {
+  fileData: null, header: null, dim: 0,
+  texData: null, originalTexData: null, extraData: null,
+  currentSlice: 0, currentAxis: 'XY', currentTool: 'view',
+  modified: false, canvas: null, ctx: null,
+};
+
+const $ = id => document.getElementById(id);
+const dropZone = $('dropZone'), fileInput = $('fileInput'), fileName = $('fileName');
+const loadStatus = $('loadStatus'), infoCard = $('infoCard'), infoGrid = $('infoGrid');
+const editorSection = $('editorSection'), sliceCanvas = $('sliceCanvas');
+const sliceSlider = $('sliceSlider'), sliceInfo = $('sliceInfo');
+
+// ========== File Loading ==========
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('dragover');
+  if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+function handleFile(file) {
+  if (!file.name.toLowerCase().endsWith('.vol')) {
+    loadStatus.textContent = '⚠️ 请选择 .vol 格式的文件';
+    return;
+  }
+  fileName.textContent = '📄 ' + file.name;
+  dropZone.classList.add('has-file');
+  loadStatus.textContent = '正在读取...';
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = new Uint8Array(e.target.result);
+    if (parseVolFile(data)) {
+      loadStatus.textContent = '✅ 文件加载成功！';
+      renderInfo();
+      initEditor();
+    } else {
+      loadStatus.textContent = '❌ 无法解析文件格式';
+    }
+  };
+  reader.onerror = () => loadStatus.textContent = '❌ 读取文件失败';
+  reader.readAsArrayBuffer(file);
+}
+
+function parseVolFile(data) {
+  const magic = String.fromCharCode(...data.slice(0,4));
+  if (magic !== 'VOLU') { loadStatus.textContent = '❌ 无效魔数: ' + magic; return false; }
+  const version = new DataView(data.buffer).getUint32(4, true);
+  const name = String.fromCharCode(...data.slice(8,72)).replace(/\0.*$/,'');
+  const payload = data.slice(HEADER_SIZE);
+  if (payload.length < 16) { loadStatus.textContent = '❌ 文件太小'; return false; }
+  const dim = new DataView(data.buffer).getUint32(0x10C, true);
+  if (dim < 4 || dim > 512 || (dim & (dim-1)) !== 0) { loadStatus.textContent = '❌ 无效维度: '+dim; return false; }
+  const texSize = dim * dim * dim;
+  if (payload.length !== texSize + EXTRA_SIZE) { loadStatus.textContent = `❌ 文件大小异常: 期望 ${texSize + EXTRA_SIZE + HEADER_SIZE} 字节, 实际 ${data.length} 字节`; return false; }
+
+  state.fileData = data;
+  state.header = { magic, version, name, dim };
+  state.dim = dim;
+  state.texData = new Uint8Array(payload.slice(0, texSize));
+  state.originalTexData = new Uint8Array(state.texData);
+  state.extraData = new Uint8Array(payload.slice(texSize));
+  state.currentSlice = 0;
+  state.currentAxis = 'XY';
+  state.modified = false;
+  return true;
+}
+
+function renderInfo() {
+  const h = state.header;
+  infoGrid.innerHTML = `
+    <div class="info-item"><div class="label">魔数</div><div class="value">${h.magic}</div></div>
+    <div class="info-item"><div class="label">版本</div><div class="value">${h.version}</div></div>
+    <div class="info-item"><div class="label">内部名称</div><div class="value" style="font-size:14px">${h.name}</div></div>
+    <div class="info-item"><div class="label">维度</div><div class="value">${h.dim}³</div></div>
+    <div class="info-item"><div class="label">体素总数</div><div class="value">${(h.dim*h.dim*h.dim).toLocaleString()}</div></div>
+    <div class="info-item"><div class="label">文件大小</div><div class="value">${(state.fileData.length/1024).toFixed(1)} KB</div></div>
+  `;
+  infoCard.style.display = 'block';
+  editorSection.style.display = 'flex';
+}
+
+function initEditor() {
+  const dim = state.dim;
+  sliceSlider.max = dim - 1;
+  sliceSlider.value = 0;
+  sliceInfo.textContent = `0 / ${dim-1}`;
+  const size = Math.min(512, dim * 4);
+  sliceCanvas.width = dim;
+  sliceCanvas.height = dim;
+  sliceCanvas.style.width = size + 'px';
+  sliceCanvas.style.height = size + 'px';
+  state.canvas = sliceCanvas;
+  state.ctx = sliceCanvas.getContext('2d');
+  renderSlice();
+  setupEvents();
+}
+
+function getSliceData(sliceIndex, axis) {
+  const dim = state.dim, data = state.texData, slice = new Uint8Array(dim*dim);
+  if (axis === 'XY') {
+    const off = sliceIndex * dim * dim;
+    for (let i = 0; i < dim*dim; i++) slice[i] = data[off+i];
+  } else if (axis === 'XZ') {
+    for (let z = 0; z < dim; z++)
+      for (let x = 0; x < dim; x++)
+        slice[z*dim+x] = data[z*dim*dim + sliceIndex*dim + x];
+  } else if (axis === 'YZ') {
+    for (let z = 0; z < dim; z++)
+      for (let y = 0; y < dim; y++)
+        slice[z*dim+y] = data[z*dim*dim + y*dim + sliceIndex];
+  }
+  return slice;
+}
+
+function renderSlice() {
+  const dim = state.dim, slice = getSliceData(state.currentSlice, state.currentAxis);
+  const ctx = state.ctx, imageData = ctx.createImageData(dim, dim);
+  for (let i = 0; i < dim*dim; i++) {
+    imageData.data[i*4] = slice[i];
+    imageData.data[i*4+1] = slice[i];
+    imageData.data[i*4+2] = slice[i];
+    imageData.data[i*4+3] = 255;
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+function getVoxelIndex(sx, sy, sz, axis) {
+  const dim = state.dim;
+  if (axis === 'XY') { if (sx<0||sx>=dim||sy<0||sy>=dim||sz<0||sz>=dim) return -1; return sz*dim*dim+sy*dim+sx; }
+  if (axis === 'XZ') { if (sx<0||sx>=dim||sz<0||sz>=dim||sy<0||sy>=dim) return -1; return sy*dim*dim+sz*dim+sx; }
+  if (axis === 'YZ') { if (sz<0||sz>=dim||sx<0||sx>=dim||sy<0||sy>=dim) return -1; return sy*dim*dim+sx*dim+sz; }
+  return -1;
+}
+
+function paintVoxel(sx, sy, color, radius, intensity) {
+  const dim = state.dim, si = state.currentSlice, ax = state.currentAxis;
+  for (let dy = -radius; dy <= radius; dy++) {
+    for (let dx = -radius; dx <= radius; dx++) {
+      const dist = Math.sqrt(dx*dx+dy*dy);
+      if (dist > radius) continue;
+      const px = sx+dx, py = sy+dy;
+      if (px<0||px>=dim||py<0||py>=dim) continue;
+      const idx = getVoxelIndex(px, py, si, ax);
+      if (idx === -1) continue;
+      const falloff = 1 - (dist/radius);
+      const newVal = Math.round(color * (intensity/255) * falloff + state.texData[idx] * (1 - (intensity/255) * falloff));
+      state.texData[idx] = Math.max(0, Math.min(255, newVal));
+    }
+  }
+  state.modified = true;
+  renderSlice();
+}
+
+function fillSlice(sx, sy, fillColor) {
+  const dim = state.dim, slice = getSliceData(state.currentSlice, state.currentAxis);
+  const targetVal = slice[sy*dim+sx];
+  if (targetVal === fillColor) return;
+  const visited = new Uint8Array(dim*dim), stack = [[sx,sy]];
+  while (stack.length > 0) {
+    const [cx,cy] = stack.pop();
+    const idx = cy*dim+cx;
+    if (cx<0||cx>=dim||cy<0||cy>=dim||visited[idx]||slice[idx]!==targetVal) continue;
+    visited[idx] = 1;
+    const vi = getVoxelIndex(cx,cy,state.currentSlice,state.currentAxis);
+    if (vi !== -1) state.texData[vi] = fillColor;
+    stack.push([cx-1,cy],[cx+1,cy],[cx,cy-1],[cx,cy+1]);
+  }
+  state.modified = true;
+  renderSlice();
+}
+
+function setupEvents() {
+  sliceSlider.oninput = () => {
+    state.currentSlice = parseInt(sliceSlider.value);
+    sliceInfo.textContent = `${state.currentSlice} / ${state.dim-1}`;
+    renderSlice();
+  };
+  $('axisXY').onclick = () => { state.currentAxis='XY'; syncSlider(); renderSlice(); };
+  $('axisXZ').onclick = () => { state.currentAxis='XZ'; syncSlider(); renderSlice(); };
+  $('axisYZ').onclick = () => { state.currentAxis='YZ'; syncSlider(); renderSlice(); };
+  function syncSlider() { state.currentSlice=Math.min(state.currentSlice,state.dim-1); sliceSlider.value=state.currentSlice; sliceInfo.textContent=`${state.currentSlice} / ${state.dim-1}`; }
+  document.querySelectorAll('[data-tool]').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('[data-tool]').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      state.currentTool = btn.dataset.tool;
+      sliceCanvas.style.cursor = state.currentTool==='view' ? 'default' : 'crosshair';
+    };
+  });
+  $('brushSize').oninput = () => $('brushSizeLabel').textContent = $('brushSize').value;
+  $('paintIntensity').oninput = () => $('paintIntensityLabel').textContent = $('paintIntensity').value;
+
+  let isDrawing = false;
+  function getSliceCoords(e) {
+    const rect = sliceCanvas.getBoundingClientRect();
+    return { sx: Math.floor((e.clientX - rect.left) * (sliceCanvas.width/rect.width)), sy: Math.floor((e.clientY - rect.top) * (sliceCanvas.height/rect.height)) };
+  }
+  sliceCanvas.onmousedown = e => {
+    if (state.currentTool === 'view') return;
+    isDrawing = true;
+    const {sx,sy} = getSliceCoords(e);
+    if (state.currentTool === 'paint') paintVoxel(sx, sy, hexToR($('paintColor').value), parseInt($('brushSize').value), parseInt($('paintIntensity').value));
+    else if (state.currentTool === 'fill') fillSlice(sx, sy, hexToR($('paintColor').value));
+  };
+  sliceCanvas.onmousemove = e => {
+    if (!isDrawing || state.currentTool !== 'paint') return;
+    const {sx,sy} = getSliceCoords(e);
+    paintVoxel(sx, sy, hexToR($('paintColor').value), parseInt($('brushSize').value), parseInt($('paintIntensity').value));
+  };
+  sliceCanvas.onmouseup = () => isDrawing = false;
+  sliceCanvas.onmouseleave = () => isDrawing = false;
+
+  sliceCanvas.ontouchstart = e => {
+    e.preventDefault();
+    if (state.currentTool === 'view') return;
+    isDrawing = true;
+    const touch = e.touches[0], rect = sliceCanvas.getBoundingClientRect();
+    const sx = Math.floor((touch.clientX-rect.left)*(sliceCanvas.width/rect.width));
+    const sy = Math.floor((touch.clientY-rect.top)*(sliceCanvas.height/rect.height));
+    if (state.currentTool === 'paint') paintVoxel(sx, sy, hexToR($('paintColor').value), parseInt($('brushSize').value), parseInt($('paintIntensity').value));
+    else if (state.currentTool === 'fill') fillSlice(sx, sy, hexToR($('paintColor').value));
+  };
+  sliceCanvas.ontouchmove = e => {
+    e.preventDefault();
+    if (!isDrawing || state.currentTool !== 'paint') return;
+    const touch = e.touches[0], rect = sliceCanvas.getBoundingClientRect();
+    const sx = Math.floor((touch.clientX-rect.left)*(sliceCanvas.width/rect.width));
+    const sy = Math.floor((touch.clientY-rect.top)*(sliceCanvas.height/rect.height));
+    paintVoxel(sx, sy, hexToR($('paintColor').value), parseInt($('brushSize').value), parseInt($('paintIntensity').value));
+  };
+  sliceCanvas.ontouchend = () => isDrawing = false;
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') { e.preventDefault(); sliceSlider.value=Math.max(0,parseInt(sliceSlider.value)-1); state.currentSlice=parseInt(sliceSlider.value); sliceInfo.textContent=`${state.currentSlice} / ${state.dim-1}`; renderSlice(); }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowRight') { e.preventDefault(); sliceSlider.value=Math.min(state.dim-1,parseInt(sliceSlider.value)+1); state.currentSlice=parseInt(sliceSlider.value); sliceInfo.textContent=`${state.currentSlice} / ${state.dim-1}`; renderSlice(); }
+  });
+}
+
+function hexToR(hex) { return parseInt(hex.slice(1,3), 16); }
+
+// ========== Filters ==========
+$('filterBrightness').oninput = () => $('filterBrightnessVal').textContent = $('filterBrightness').value;
+$('filterContrast').oninput = () => $('filterContrastVal').textContent = $('filterContrast').value + '%';
+$('filterGamma').oninput = () => $('filterGammaVal').textContent = (parseInt($('filterGamma').value)/100).toFixed(1);
+
+function applyFilter(fn) { for (let i=0;i<state.texData.length;i++) state.texData[i]=fn(state.texData[i]); state.modified=true; renderSlice(); }
+$('applyBrightness').onclick = () => { const v=parseInt($('filterBrightness').value); applyFilter(x=>Math.max(0,Math.min(255,x+v))); };
+$('applyContrast').onclick = () => { const f=parseInt($('filterContrast').value)/100; applyFilter(x=>Math.max(0,Math.min(255,Math.round(((x/255-0.5)*f+0.5)*255)))); };
+$('applyGamma').onclick = () => { const g=parseInt($('filterGamma').value)/100; applyFilter(x=>Math.max(0,Math.min(255,Math.round(Math.pow(x/255,g)*255)))); };
+$('invertColors').onclick = () => applyFilter(x=>255-x);
+$('normalizeHist').onclick = () => {
+  const hist=new Array(256).fill(0);
+  for (let i=0;i<state.texData.length;i++) hist[state.texData[i]]++;
+  const cdf=new Array(256); cdf[0]=hist[0];
+  for (let i=1;i<256;i++) cdf[i]=cdf[i-1]+hist[i];
+  const cdfMin=cdf.find(v=>v>0), total=state.texData.length;
+  const map=new Array(256);
+  for (let i=0;i<256;i++) map[i]=Math.round(((cdf[i]-cdfMin)/(total-cdfMin))*255);
+  applyFilter(x=>map[x]);
+};
+$('smoothFilter').onclick = () => {
+  const dim=state.dim, data=state.texData, result=new Uint8Array(data.length);
+  for (let z=0;z<dim;z++) for (let y=0;y<dim;y++) for (let x=0;x<dim;x++) {
+    let sum=0,count=0;
+    for (let dz=-1;dz<=1;dz++) for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++) {
+      const nx=x+dx,ny=y+dy,nz=z+dz;
+      if (nx>=0&&nx<dim&&ny>=0&&ny<dim&&nz>=0&&nz<dim) { sum+=data[nz*dim*dim+ny*dim+nx]; count++; }
+    }
+    result[z*dim*dim+y*dim+x]=Math.round(sum/count);
+  }
+  state.texData.set(result); state.modified=true; renderSlice();
+};
+$('resetTexture').onclick = () => { if (confirm('确定重置纹理到原始状态？')) { state.texData.set(state.originalTexData); state.modified=false; renderSlice(); } };
+
+// ========== Export ==========
+$('exportVol').onclick = () => {
+  const dim=state.dim, texSize=dim*dim*dim;
+  const header=state.fileData.slice(0,0x100);
+  const output=new Uint8Array(header.length+texSize+state.extraData.length);
+  let off=0;
+  output.set(header,off); off+=header.length;
+  output.set(state.texData,off); off+=texSize;
+  output.set(state.extraData,off);
+  const blob=new Blob([output],{type:'application/octet-stream'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=state.header.name.includes('.')?state.header.name:(state.header.name+'.vol');
+  a.click(); URL.revokeObjectURL(url);
+  state.modified=false;
+  $('exportStatus').textContent='✅ 导出成功！';
+};
+
+$('exportPNG').onclick = () => {
+  const c=document.createElement('canvas'); c.width=state.dim; c.height=state.dim;
+  const ctx=c.getContext('2d'), imgData=ctx.createImageData(state.dim,state.dim);
+  const slice=getSliceData(state.currentSlice,state.currentAxis);
+  for (let i=0;i<state.dim*state.dim;i++) { imgData.data[i*4]=slice[i]; imgData.data[i*4+1]=slice[i]; imgData.data[i*4+2]=slice[i]; imgData.data[i*4+3]=255; }
+  ctx.putImageData(imgData,0,0);
+  const a=document.createElement('a'); a.href=c.toDataURL('image/png');
+  a.download=`${state.header.name}_${state.currentAxis}_${state.currentSlice}.png`; a.click();
+};
+
+$('exportAllSlices').onclick = async () => {
+  const dim=state.dim, ax=state.currentAxis;
+  $('exportStatus').textContent=`正在导出 ${dim} 张切片...`;
+  $('exportProgressFill').style.width='0%';
+  const zip=new JSZip();
+  for (let i=0;i<dim;i++) {
+    const c=document.createElement('canvas'); c.width=dim; c.height=dim;
+    const ctx=c.getContext('2d'), imgData=ctx.createImageData(dim,dim);
+    const slice=getSliceData(i,ax);
+    for (let j=0;j<dim*dim;j++) { imgData.data[j*4]=slice[j]; imgData.data[j*4+1]=slice[j]; imgData.data[j*4+2]=slice[j]; imgData.data[j*4+3]=255; }
+    ctx.putImageData(imgData,0,0);
+    const blob=await new Promise(r=>c.toBlob(r,'image/png'));
+    zip.file(`${state.header.name}_${ax}_${String(i).padStart(3,'0')}.png`,blob);
+    $('exportProgressFill').style.width=((i+1)/dim*100)+'%';
+  }
+  const blob=await zip.generateAsync({type:'blob'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=`${state.header.name}_slices_${ax}.zip`; a.click();
+  URL.revokeObjectURL(url);
+  $('exportStatus').textContent=`✅ 导出 ${dim} 张切片为 ZIP`;
+  $('exportProgressFill').style.width='100%';
+};
+
+const script=document.createElement('script');
+script.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+document.head.appendChild(script);
+</script>
+</body>
+</html>
