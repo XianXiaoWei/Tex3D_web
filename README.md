@@ -4,7 +4,7 @@
 
 ![GitHub](https://img.shields.io/badge/license-MIT-green)
 ![HTML](https://img.shields.io/badge/tool-HTML-blue)
-![Python](https://img.shields.io/badge/tool-Python%203-blue)
+
 
 ---
 
